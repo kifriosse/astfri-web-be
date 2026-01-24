@@ -12,7 +12,7 @@ namespace KIFRIOSSE.ASTFRI.Web.API
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
-
+            
             // swagger support
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -25,6 +25,14 @@ namespace KIFRIOSSE.ASTFRI.Web.API
                 app.MapOpenApi();
                 app.UseSwagger();
                 app.UseSwaggerUI();
+
+                // CORS support for development
+                app.UseCors(policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
             }
 
             app.UseHttpsRedirection();
