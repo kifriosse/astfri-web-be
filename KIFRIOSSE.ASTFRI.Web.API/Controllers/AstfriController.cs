@@ -42,5 +42,30 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                 ASTFRIVersion= astfriVersion
             });
         }
+
+        /// <summary>
+        /// Transforms the input code from one library format to another using the ASTFRI CLI.
+        /// </summary>
+        /// <param name="request">The transformation request containing input library, input text, and output library.</param>
+        /// <returns>The transformed code or an error message.</returns>
+        [HttpPost("transform")]
+        public IActionResult PostTransform([FromBody] TransformRequest request)
+        {
+            try
+            {
+                string result = _astfriCLI.RunTranslation(request.InputLib, request.InputText, request.OutputLib);
+                return Ok(new { Output = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = "An error occurred while processing the transformation.", Details = ex.Message });
+            }
+        }
+
+        public record TransformRequest(string InputLib, string InputText, string OutputLib);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text;
 
 namespace KIFRIOSSE.ASTFRI.SDK
 {
@@ -15,14 +16,48 @@ namespace KIFRIOSSE.ASTFRI.SDK
         /// spusti ASTFRI CLI transformacu dat
         /// </summary>
         /// <param name="inputLib">typ vstupnej kniznice</param>
-        /// <param name="inputText">zdrojovy kod na vstupe</param>
+        /// <param name="inputText">base64encoded zdrojovy kod na vstupe</param>
         /// <param name="outputLib">typ vystupnej kniznice</param>
         /// <returns>
         ///     vystup transformacie ako string
         /// </returns>
         public string RunTranslation(string inputLib, string inputText, string outputLib)
         {
-            throw new NotImplementedException("This method is not implemented yet. It should run the ASTFRI CLI with the given input and output libraries and return the result as a string.");
+            // validate input and output library types against configuration
+            if (!Config.InputLibs.Contains(inputLib))
+            {
+                throw new ArgumentException($"Input library '{inputLib}' is not supported. Supported input libraries: {string.Join(", ", Config.InputLibs)}");
+            }
+            if (!Config.OutputLibs.Contains(outputLib))
+            {
+                throw new ArgumentException($"Output library '{outputLib}' is not supported. Supported output libraries: {string.Join(", ", Config.OutputLibs)}");
+            }
+
+            // save inputText to a temporary file, because some CLI tools may not support large input via standard input
+            string decodedInput = Encoding.UTF8.GetString(Convert.FromBase64String(inputText));
+            string tempInputFile = Path.Combine(Path.GetTempPath(), $"{Path.GetRandomFileName()}.{inputLib}");
+            File.WriteAllText(tempInputFile, decodedInput);
+
+            // build arguments
+            string arguments = $"--input {inputLib} --input-file {tempInputFile} --output {outputLib}";
+
+            try
+            {
+                var result = RunProcess(arguments);
+
+                if (result.code != 0)
+                {
+                    throw new Exception($"ASTFRI CLI error (code {result.code}). stdErr: {result.stdError}, stdOut: {result.stdError}");
+                }
+
+                return result.stdOutput;
+            }
+            finally
+            {
+                // clean up temporary file
+                File.Delete(tempInputFile);
+            }
+
         }
 
         /// <summary>
@@ -31,26 +66,45 @@ namespace KIFRIOSSE.ASTFRI.SDK
         /// <returns></returns>
         public string GetVersion()
         {
+            return RunProcess("--version").stdOutput;
+        }
+
+        protected (int code, string stdOutput, string? stdError) RunProcess(string arguments, string? standardInput = null)
+        {
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = Config.ExecutablePath,
-                Arguments = "--version",
+                Arguments = arguments,
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardInput = !string.IsNullOrEmpty(standardInput)
             };
 
-            string astfriOutput = string.Empty;
+            int? exitCode = null;
+            string? stdOutput = null;
+            string? stdError = null;
             using (var process = System.Diagnostics.Process.Start(startInfo))
             {
                 if (process is not null)
                 {
-                    astfriOutput = process.StandardOutput.ReadToEnd();
+                    if (!string.IsNullOrEmpty(standardInput))
+                    {
+                        using (var writer = process.StandardInput)
+                        {
+                            writer.Write(standardInput);
+                        }
+                    }
+
+                    stdOutput = process.StandardOutput.ReadToEnd();
+                    stdError = process.StandardError.ReadToEnd();
                     process.WaitForExit();
+                    exitCode = process.ExitCode;
                 }
             }
 
-            return astfriOutput.Trim();
+            return (exitCode ?? -1, stdOutput?.Trim() ?? string.Empty, stdError);
         }
 
         public class Configuration
