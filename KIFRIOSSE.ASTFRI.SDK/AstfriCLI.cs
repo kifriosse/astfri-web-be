@@ -31,20 +31,17 @@ namespace KIFRIOSSE.ASTFRI.SDK
         /// <returns></returns>
         public string GetVersion()
         {
-            var process = new System.Diagnostics.Process
+            var startInfo = new System.Diagnostics.ProcessStartInfo
             {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = Config.ExecutablePath,
-                    Arguments = "--version",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                }
+                FileName = Config.ExecutablePath,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
 
             string astfriOutput = string.Empty;
-            using (var process = System.Diagnostics.Process.Start(processInfo))
+            using (var process = System.Diagnostics.Process.Start(startInfo))
             {
                 if (process is not null)
                 {

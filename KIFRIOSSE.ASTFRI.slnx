@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="KIFRIOSSE.ASTFRI.SDK/KIFRIOSSE.ASTFRI.SDK.csproj" Id="9f2e90a2-0f50-450c-8a40-5efec7f1f45d" />
   <Project Path="KIFRIOSSE.ASTFRI.Web.API/KIFRIOSSE.ASTFRI.Web.API.csproj" />
 </Solution>
