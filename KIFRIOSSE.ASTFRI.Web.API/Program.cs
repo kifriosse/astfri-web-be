@@ -1,5 +1,6 @@
 
 using KIFRIOSSE.ASTFRI.SDK;
+using System.Threading.RateLimiting;
 
 namespace KIFRIOSSE.ASTFRI.Web.API
 {
@@ -10,6 +11,40 @@ namespace KIFRIOSSE.ASTFRI.Web.API
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+
+            // Configure max request size limit (5 MB)
+            builder.WebHost.ConfigureKestrel(serverOptions =>
+            {
+                serverOptions.Limits.MaxRequestBodySize = 5_242_880; // 5 MB
+            });
+
+            // Configure rate limiting (60 requests per minute)
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: partition => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 60,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            });
+
+            // Configure CORS
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
 
             builder.Services.AddControllers();
 
@@ -54,19 +89,18 @@ namespace KIFRIOSSE.ASTFRI.Web.API
             }
 
             // Configure the HTTP request pipeline.
+
+            // CORS must be before rate limiting to allow preflight requests
+            app.UseCors();
+
+            // Enable rate limiting (after CORS)
+            app.UseRateLimiter();
+
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
                 app.UseSwagger();
                 app.UseSwaggerUI();
-
-                // CORS support for development
-                app.UseCors(policy =>
-                {
-                    policy.AllowAnyOrigin()
-                          .AllowAnyHeader()
-                          .AllowAnyMethod();
-                });
             }
 
             app.UseHttpsRedirection();
