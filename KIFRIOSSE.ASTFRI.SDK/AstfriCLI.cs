@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 
 namespace KIFRIOSSE.ASTFRI.SDK
 {
@@ -18,10 +19,11 @@ namespace KIFRIOSSE.ASTFRI.SDK
         /// <param name="inputLib">typ vstupnej kniznice</param>
         /// <param name="inputText">base64encoded zdrojovy kod na vstupe</param>
         /// <param name="outputLib">typ vystupnej kniznice</param>
+        /// <param name="outputConfig">volitelna konfiguracia vystupu, napr. cielovy jazyk pre generovanie</param>
         /// <returns>
         ///     vystup transformacie ako string
         /// </returns>
-        public string RunTranslation(string inputLib, string inputText, string outputLib)
+        public string RunTranslation(string inputLib, string inputText, string outputLib, JsonElement? outputConfig = null)
         {
             // validate input and output library types against configuration
             if (!Config.InputLibs.Contains(inputLib))
@@ -37,9 +39,23 @@ namespace KIFRIOSSE.ASTFRI.SDK
             string decodedInput = Encoding.UTF8.GetString(Convert.FromBase64String(inputText));
             string tempInputFile = Path.Combine(Path.GetTempPath(), $"{Path.GetRandomFileName()}.{inputLib}");
             File.WriteAllText(tempInputFile, decodedInput);
+            string? tempOutputConfigFile = null;
+
+             // if outputConfig is provided, save it to a temporary file and pass the path as an argument
+            if (outputConfig.HasValue)
+            {
+                tempOutputConfigFile = Path.Combine(Path.GetTempPath(), $"{Path.GetRandomFileName()}.json");
+                var tmpOutputConfigValue = outputConfig.Value.ToString();
+                File.WriteAllText(tempOutputConfigFile, tmpOutputConfigValue);
+            }
 
             // build arguments
             string arguments = $"--input {inputLib} --input-file {tempInputFile} --output {outputLib}";
+
+            if (!string.IsNullOrEmpty(tempOutputConfigFile))
+            {
+                arguments += $" --output-config-file {tempOutputConfigFile}";
+            }
 
             try
             {
@@ -47,7 +63,7 @@ namespace KIFRIOSSE.ASTFRI.SDK
 
                 if (result.code != 0)
                 {
-                    throw new Exception($"ASTFRI CLI error (code {result.code}). stdErr: {result.stdError}, stdOut: {result.stdError}");
+                    throw new Exception($"ASTFRI CLI error (code {result.code}). stdErr: {result.stdError}, stdOut: {result.stdOutput}");
                 }
 
                 return result.stdOutput;
@@ -56,6 +72,10 @@ namespace KIFRIOSSE.ASTFRI.SDK
             {
                 // clean up temporary file
                 File.Delete(tempInputFile);
+                if (!string.IsNullOrEmpty(tempOutputConfigFile))
+                {
+                    File.Delete(tempOutputConfigFile);
+                }
             }
 
         }

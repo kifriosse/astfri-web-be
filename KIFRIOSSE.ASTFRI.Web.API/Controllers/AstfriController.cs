@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using KIFRIOSSE.ASTFRI.SDK;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
 {
@@ -58,8 +59,8 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
             var stopwatch = Stopwatch.StartNew();
 
             _logger.LogInformation(
-                "PostTransform request received | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | InputTextLength: {InputTextLength}",
-                requestId, request.InputLib, request.OutputLib, request.InputText?.Length ?? 0);
+                "PostTransform request received | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | OutputConfig: {OutputConfig} | InputTextLength: {InputTextLength}",
+                requestId, request.InputLib, request.OutputLib, request.OutputConfig, request.InputText?.Length ?? 0);
 
             // Validate input library type
              if (!_astfriCLI.Config.InputLibs.Contains(request.InputLib))
@@ -91,11 +92,11 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
             try
             {
                 _logger.LogDebug(
-                    "Starting transformation | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | InputPreview: {InputPreview}",
-                    requestId, request.InputLib, request.OutputLib, 
+                    "Starting transformation | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | OutputConfig: {OutputConfig} | InputPreview: {InputPreview}",
+                    requestId, request.InputLib, request.OutputLib, request.OutputConfig,
                     request.InputText.Length > 100 ? request.InputText.Substring(0, 100) + "..." : request.InputText);
 
-                string result = _astfriCLI.RunTranslation(request.InputLib, request.InputText, request.OutputLib);
+                string result = _astfriCLI.RunTranslation(request.InputLib, request.InputText, request.OutputLib, request.OutputConfig);
 
                 stopwatch.Stop();
                 _logger.LogInformation(
@@ -112,8 +113,8 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
             {
                 stopwatch.Stop();
                 _logger.LogWarning(
-                    "PostTransform failed - ArgumentException | RequestId: {RequestId} | DurationMs: {DurationMs} | ErrorMessage: {ErrorMessage} | InputLib: {InputLib} | OutputLib: {OutputLib}",
-                    requestId, stopwatch.ElapsedMilliseconds, ex.Message, request.InputLib, request.OutputLib);
+                    "PostTransform failed - ArgumentException | RequestId: {RequestId} | DurationMs: {DurationMs} | ErrorMessage: {ErrorMessage} | InputLib: {InputLib} | OutputLib: {OutputLib} | OutputConfig: {OutputConfig}",
+                    requestId, stopwatch.ElapsedMilliseconds, ex.Message, request.InputLib, request.OutputLib, request.OutputConfig);
 
                 return BadRequest(new { Error = ex.Message });
             }
@@ -128,6 +129,6 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
             }
         }
 
-        public record TransformRequest(string InputLib, string InputText, string OutputLib);
+        public record TransformRequest(string InputLib, string InputText, string OutputLib, JsonElement? OutputConfig = null);
     }
 }
