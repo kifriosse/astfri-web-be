@@ -1,5 +1,6 @@
 
 using KIFRIOSSE.ASTFRI.SDK;
+using KIFRIOSSE.ASTFRI.Web.API.Services;
 using System.Threading.RateLimiting;
 
 namespace KIFRIOSSE.ASTFRI.Web.API
@@ -47,6 +48,7 @@ namespace KIFRIOSSE.ASTFRI.Web.API
             });
 
             builder.Services.AddControllers();
+            builder.Services.AddSingleton<IContentValidationService, ContentValidationService>();
 
             builder.Services.AddSingleton<AstfriCLI>(sp => {
                 var config = builder.Configuration.GetSection("AstfriCLI").Get<AstfriCLI.Configuration>();

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using KIFRIOSSE.ASTFRI.SDK;
+using KIFRIOSSE.ASTFRI.Web.API.Services;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -11,11 +12,16 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
     public class AstfriController : ControllerBase
     {
         private readonly AstfriCLI _astfriCLI;
+        private readonly IContentValidationService _contentValidationService;
         private readonly ILogger<AstfriController> _logger;
 
-        public AstfriController(AstfriCLI astfriCli, ILogger<AstfriController> logger)
+        public AstfriController(
+            AstfriCLI astfriCli,
+            IContentValidationService contentValidationService,
+            ILogger<AstfriController> logger)
         {
             _astfriCLI = astfriCli;
+            _contentValidationService = contentValidationService;
             _logger = logger;
         }
 
@@ -43,7 +49,7 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                 IsLinux = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux),
                 UserName = Environment.UserName,
                 MachineName = Environment.MachineName,
-                ASTFRIVersion= astfriVersion
+                ASTFRIVersion = astfriVersion
             });
         }
 
@@ -63,7 +69,7 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                 requestId, request.InputLib, request.OutputLib, request.OutputConfig, request.InputText?.Length ?? 0);
 
             // Validate input library type
-             if (!_astfriCLI.Config.InputLibs.Contains(request.InputLib))
+            if (!_astfriCLI.Config.InputLibs.Contains(request.InputLib))
             {
                 _logger.LogWarning(
                     "PostTransform rejected - Unsupported InputLib | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | SupportedInputLibs: {SupportedInputLibs}",
@@ -80,6 +86,15 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                 return BadRequest(new { Error = "InputText cannot be null or empty." });
             }
 
+            var inputValidationResult = _contentValidationService.ValidateBase64Utf8Text(request.InputText);
+            if (!inputValidationResult.IsValid)
+            {
+                _logger.LogWarning(
+                    "PostTransform rejected - Unsafe input payload | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | Reason: {Reason}",
+                    requestId, request.InputLib, request.OutputLib, inputValidationResult.ErrorMessage);
+                return BadRequest(new { Error = inputValidationResult.ErrorMessage });
+            }
+
             // Validate output library type
             if (!_astfriCLI.Config.OutputLibs.Contains(request.OutputLib))
             {
@@ -87,6 +102,17 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                     "PostTransform rejected - Unsupported OutputLib | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | SupportedOutputLibs: {SupportedOutputLibs}",
                     requestId, request.InputLib, request.OutputLib, string.Join(", ", _astfriCLI.Config.OutputLibs));
                 return BadRequest(new { Error = $"Output library '{request.OutputLib}' is not supported. Supported output libraries: {string.Join(", ", _astfriCLI.Config.OutputLibs)}" });
+            }
+            if (request.OutputConfig.HasValue)
+            {
+                var outputConfigValidationResult = _contentValidationService.ValidateText(request.OutputConfig.Value.ToString());
+                if (!outputConfigValidationResult.IsValid)
+                {
+                    _logger.LogWarning(
+                        "PostTransform rejected - Unsafe outputConfig payload | RequestId: {RequestId} | InputLib: {InputLib} | OutputLib: {OutputLib} | Reason: {Reason}",
+                        requestId, request.InputLib, request.OutputLib, outputConfigValidationResult.ErrorMessage);
+                    return BadRequest(new { Error = $"OutputConfig is invalid. Reason: {outputConfigValidationResult.ErrorMessage}" });
+                }
             }
 
             try
