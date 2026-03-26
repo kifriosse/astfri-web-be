@@ -11,14 +11,6 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Services
     public sealed class ContentValidationService : IContentValidationService
     {
         private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-        private static readonly byte[][] KnownBinarySignatures =
-        [
-            [0x4D, 0x5A],
-            [0x7F, 0x45, 0x4C, 0x46],
-            [0x50, 0x4B, 0x03, 0x04],
-            [0x89, 0x50, 0x4E, 0x47],
-            [0x25, 0x50, 0x44, 0x46]
-        ];
 
         public ContentValidationResult ValidateBase64Utf8Text(string inputText)
         {
@@ -36,11 +28,6 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Services
             if (decodedBytes.Length == 0)
             {
                 return ContentValidationResult.Invalid("InputText cannot decode to an empty payload.");
-            }
-
-            if (HasKnownBinarySignature(decodedBytes))
-            {
-                return ContentValidationResult.Invalid("InputText contains binary content, which is not allowed.");
             }
 
             string decodedText;
@@ -75,24 +62,6 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Services
             }
 
             return ContentValidationResult.Valid();
-        }
-
-        private static bool HasKnownBinarySignature(ReadOnlySpan<byte> decodedBytes)
-        {
-            foreach (var signature in KnownBinarySignatures)
-            {
-                if (decodedBytes.Length < signature.Length)
-                {
-                    continue;
-                }
-
-                if (decodedBytes[..signature.Length].SequenceEqual(signature))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static bool ContainsDisallowedControlCharacters(string decodedText)
