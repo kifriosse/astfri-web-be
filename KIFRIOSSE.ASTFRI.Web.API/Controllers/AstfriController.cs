@@ -133,7 +133,7 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                     "Transformation result preview | RequestId: {RequestId} | OutputPreview: {OutputPreview}",
                     requestId, result?.Length > 100 ? result.Substring(0, 100) + "..." : result);
 
-                return Ok(new { Output = result });
+                return Ok(new { OuptutLib = request.OutputLib,  Output = result });
             }
             catch (ArgumentException ex)
             {
