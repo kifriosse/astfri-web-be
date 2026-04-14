@@ -43,14 +43,24 @@ namespace KIFRIOSSE.ASTFRI.Web.API.Controllers
                 astfriVersion = "Error accessing CLI";
             }
 
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            if (isDevelopment)
+            {
+                return Ok(new
+                {
+                    OSDescription = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                    IsLinux = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux),
+                    UserName = Environment.UserName,
+                    MachineName = Environment.MachineName,
+                    ASTFRIVersion = astfriVersion
+                });
+            }
+
             return Ok(new
             {
-                OSDescription = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
-                IsLinux = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux),
-                UserName = Environment.UserName,
-                MachineName = Environment.MachineName,
                 ASTFRIVersion = astfriVersion
             });
+
         }
 
         /// <summary>
